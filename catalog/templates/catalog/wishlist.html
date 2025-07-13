@@ -1,0 +1,14 @@
+{% extends "base_generic.html" %}
+{% block content %}
+<h1>Your Wishlist</h1>
+<ul>
+    {% for book in books %}
+    <li>
+        <a href="{% url 'book-detail' book.pk %}">{{ book.title }}</a> by {{ book.author }}
+    </li>
+    {% empty %}
+    <li>No books in your wishlist.</li>
+    {% endfor %}
+</ul>
+{% endblock %}
+

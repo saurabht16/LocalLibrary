@@ -1,0 +1,18 @@
+{% extends "base_generic.html" %}
+{% block content %}
+<h1>Reviews for {{ book.title }}</h1>
+<a href="{% url 'add-book-review' book.pk %}" class="search-btn">Add Review</a>
+<ul>
+    {% for review in reviews %}
+    <li>
+        <strong>{{ review.user.username }}</strong> - Rating: {{ review.rating }}<br>
+        {{ review.comment }}<br>
+        <small>{{ review.created_at|date:"M d, Y H:i" }}</small>
+    </li>
+    {% empty %}
+    <li>No reviews yet.</li>
+    {% endfor %}
+</ul>
+<a href="{% url 'books' %}">Back to Book List</a>
+{% endblock %}
+

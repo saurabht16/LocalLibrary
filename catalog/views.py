@@ -1,12 +1,15 @@
 from django.shortcuts import render, get_object_or_404
 from django.views import generic
-from catalog.models import Book, Author, BookInstance, Genre, Language
+from catalog.models import Book, Author, BookInstance, Genre, Language, BookReview, Wishlist, Notification
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 import datetime
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.contrib.auth.decorators import permission_required
+from django.db.models import Q
+from django.contrib.auth.models import User
+from django.shortcuts import redirect
 
 from catalog.forms import RenewBookForm
 
@@ -40,6 +43,15 @@ class BookListView(LoginRequiredMixin, generic.ListView):
 
 class BookDetailView(LoginRequiredMixin, generic.DetailView):
     model = Book
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        book = self.object
+        context['in_wishlist'] = False
+        if user.is_authenticated:
+            context['in_wishlist'] = book.wishlist_set.filter(user=user).exists()
+        return context
 
 
 class LoanedBooksByUserListView(LoginRequiredMixin, generic.ListView):
@@ -83,3 +95,93 @@ def renew_book_librarian(request, pk):
     }
 
     return render(request, 'catalog/book_renew_librarian.html', context)
+
+@login_required
+def book_search(request):
+    query = request.GET.get('q', '')
+    results = []
+    if query:
+        results = Book.objects.filter(
+            Q(title__icontains=query) | Q(author__name__icontains=query)
+        )
+    context = {
+        'query': query,
+        'results': results,
+    }
+    return render(request, 'catalog/book_search.html', context)
+
+@login_required
+def user_profile(request):
+    user = request.user
+    reviews = BookReview.objects.filter(user=user)
+    return render(request, 'catalog/user_profile.html', {'user': user, 'reviews': reviews})
+
+@login_required
+def book_reviews(request, pk):
+    book = get_object_or_404(Book, pk=pk)
+    reviews = book.reviews.all()
+    return render(request, 'catalog/book_reviews.html', {'book': book, 'reviews': reviews})
+
+@login_required
+def add_book_review(request, pk):
+    book = get_object_or_404(Book, pk=pk)
+    if request.method == 'POST':
+        rating = int(request.POST.get('rating', 5))
+        comment = request.POST.get('comment', '')
+        BookReview.objects.create(book=book, user=request.user, rating=rating, comment=comment)
+        return redirect('book-reviews', pk=book.pk)
+    return render(request, 'catalog/add_book_review.html', {'book': book})
+
+@login_required
+def loan_book(request, pk):
+    copy = get_object_or_404(BookInstance, pk=pk)
+    if copy.status == 'a':
+        copy.status = 'o'
+        copy.borrower = request.user
+        # Set due_back to 2 weeks from today
+        copy.due_back = datetime.date.today() + datetime.timedelta(weeks=2)
+        copy.save()
+    return HttpResponseRedirect(reverse('book-detail', args=[str(copy.book.pk)]))
+
+@login_required
+def return_book(request, pk):
+    copy = get_object_or_404(BookInstance, pk=pk)
+    if copy.status == 'o' and copy.borrower == request.user:
+        copy.status = 'a'
+        copy.borrower = None
+        copy.due_back = None
+        copy.save()
+    return HttpResponseRedirect(reverse('book-detail', args=[str(copy.book.pk)]))
+
+@login_required
+def add_to_wishlist(request, pk):
+    book = get_object_or_404(Book, pk=pk)
+    Wishlist.objects.get_or_create(user=request.user, book=book)
+    return redirect('book-detail', pk=pk)
+
+@login_required
+def remove_from_wishlist(request, pk):
+    book = get_object_or_404(Book, pk=pk)
+    Wishlist.objects.filter(user=request.user, book=book).delete()
+    return redirect('book-detail', pk=pk)
+
+@login_required
+def wishlist(request):
+    books = Book.objects.filter(wishlist__user=request.user)
+    return render(request, 'catalog/wishlist.html', {'books': books})
+
+@login_required
+def notifications(request):
+    notes = Notification.objects.filter(user=request.user).order_by('-created_at')
+    return render(request, 'catalog/notifications.html', {'notifications': notes})
+
+# Helper: Notify users when a wished book becomes available
+# Call this in your loan_book and return_book views after a book is returned
+
+def notify_wishlist_users(book):
+    wished_users = User.objects.filter(wishlist__book=book)
+    for user in wished_users:
+        Notification.objects.create(
+            user=user,
+            message=f"'{book.title}' is now available!"
+        )

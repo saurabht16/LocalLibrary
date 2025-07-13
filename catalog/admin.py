@@ -1,11 +1,12 @@
 from django.contrib import admin
 
-from catalog.models import Author, Genre,Book, BookInstance, Language
+from catalog.models import Author, Genre,Book, BookInstance, Language, BookReview
 
 
 #admin.site.register(Author)
 admin.site.register(Genre)
 admin.site.register(Language)
+admin.site.register(BookReview)
 
 class AuthorAdmin(admin.ModelAdmin):
    list_display =  ('last_name', 'first_name', 'date_of_birth',)

@@ -1,0 +1,23 @@
+{% extends "base_generic.html" %}
+
+{% load static %}
+{% load humanize %}
+
+{% block title %}Notifications{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'catalog/css/notifications.css' %}">
+{% endblock %}
+{% block content %}
+<h1>Your Notifications</h1>
+<ul>
+    {% for note in notifications %}
+    <li{% if not note.is_read %} style="font-weight:bold;"{% endif %}>
+        {{ note.message }} <small>({{ note.created_at|date:"M d, Y H:i" }})</small>
+    </li>
+    {% empty %}
+    <li>No notifications.</li>
+    {% endfor %}
+</ul>
+{% endblock %}
+
