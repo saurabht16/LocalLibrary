@@ -26,7 +26,7 @@ class Book(models.Model):
     """
     title = models.CharField(max_length=200)
     author = models.ForeignKey('Author', on_delete=models.SET_NULL, null=True)
-    summary = models.TextField(max_length=1000, help_text='Enter a brief summary of the book'),
+    summary = models.TextField(max_length=1000, help_text='Enter a brief summary of the book')
     isbn = models.CharField('ISBN', max_length=13, help_text='13 character ISBN Number')
     genre = models.ManyToManyField(Genre, help_text='Select a Genre for this book')
     language = models.ForeignKey('Language', help_text='Select the language of the book', on_delete=models.SET_NULL, null=True)
